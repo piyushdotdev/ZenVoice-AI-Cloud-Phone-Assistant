@@ -1,6 +1,8 @@
-# ZenVoice
+# ZenVoice: AI Cloud Phone Assistant
 
-ZenVoice lets a caller have a supportive conversation in Hindi or English using an ordinary phone. Twilio handles the call, a Flask application keeps track of the conversation, and an optional Firestore database remembers returning callers. A separate SOS workflow can notify the caller's saved contacts.
+A caller dials a number, speaks in Hindi or English, and hears a reply in the same conversation. ZenVoice brings conversational AI to an ordinary phone call, so callers can use it without a smartphone, an app, or a mobile data connection.
+
+Built for mental health support, the prototype uses emotion cues in the caller's words to guide the conversation. With Firestore enabled, it remembers returning callers. Its SOS workflow can alert trusted contacts by phone and share updates with a live operator dashboard.
 
 Built as a final-year Artificial Intelligence and Data Science engineering project at New Horizon Institute of Technology and Management, Thane. [Read the published research paper (PDF)](https://ijnrd.org/papers/IJNRD2605333.pdf).
 
