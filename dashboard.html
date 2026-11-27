@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ZenVoice · Live Emotion Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #06060f;
+      --surface: #0d0d1e;
+      --card: #11112b;
+      --card2: #161630;
+      --border: rgba(120, 100, 255, 0.15);
+      --accent: #7c5cfc;
+      --accent2: #a78bfa;
+      --glow: rgba(124, 92, 252, 0.35);
+
+      --happy:   #22d3a0;
+      --sad:     #60a5fa;
+      --angry:   #f87171;
+      --scared:  #fbbf24;
+      --neutral: #94a3b8;
+      --calm:    #34d399;
+      --fearful: #fb923c;
+      --disgust: #c084fc;
+      --surprised: #f472b6;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: #e2e8f0;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ─── Animated background ─── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(124,92,252,0.12) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 40% at 80% 80%, rgba(34,211,160,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 70% 20%, rgba(96,165,250,0.07) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Header ─── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 32px;
+      background: rgba(6,6,15,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      box-shadow: 0 0 16px var(--glow);
+    }
+
+    .logo-text {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 30%, var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .logo-sub {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 500;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* Live indicator */
+    #live-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #22d3a0;
+      background: rgba(34,211,160,0.1);
+      border: 1px solid rgba(34,211,160,0.3);
+      border-radius: 20px;
+      padding: 6px 14px;
+      transition: all 0.3s;
+    }
+
+    #live-badge.offline {
+      color: #94a3b8;
+      background: rgba(148,163,184,0.1);
+      border-color: rgba(148,163,184,0.2);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22d3a0;
+      animation: pulse-dot 1.4s infinite;
+    }
+
+    #live-badge.offline .live-dot {
+      animation: none;
+      background: #94a3b8;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    header-stats {
+      display: flex;
+      gap: 24px;
+    }
+
+    .hstat {
+      text-align: right;
+    }
+    .hstat-val {
+      font-size: 20px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .hstat-lbl {
+      font-size: 10px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+
+    /* ─── Main layout ─── */
+    main {
+      position: relative;
+      z-index: 1;
+      padding: 28px 28px 60px;
+      max-width: 1600px;
+      margin: 0 auto;
+    }
+
+    /* Section title */
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #475569;
+      margin-bottom: 14px;
+      margin-top: 32px;
+    }
+
+    /* ─── Grid layouts ─── */
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .grid-3-1 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1.4fr;
+      gap: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .grid-big {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 16px;
+    }
+
+    /* ─── Stat cards ─── */
+    .stat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px 22px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--card-accent, var(--accent));
+      opacity: 0.7;
+    }
+
+    .stat-icon {
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .stat-val {
+      font-size: 36px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      margin-bottom: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-lbl {
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 500;
+      letter-spacing: 0.03em;
+    }
+
+    .stat-trend {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #22d3a0;
+      background: rgba(34,211,160,0.12);
+      border-radius: 8px;
+      padding: 3px 8px;
+    }
+
+    /* ─── Emotion card ─── */
+    .emotion-now-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 26px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .emotion-now-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #475569;
+    }
+
+    .emotion-display {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .emotion-orb {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      flex-shrink: 0;
+      transition: all 0.6s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative;
+    }
+
+    .emotion-orb::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid currentColor;
+      opacity: 0.3;
+      animation: orb-ring 2s infinite;
+    }
+
+    @keyframes orb-ring {
+      0% { transform: scale(1); opacity: 0.3; }
+      50% { transform: scale(1.1); opacity: 0.1; }
+      100% { transform: scale(1); opacity: 0.3; }
+    }
+
+    .emotion-info h2 {
+      font-size: 30px;
+      font-weight: 800;
+      text-transform: capitalize;
+      color: #fff;
+    }
+
+    .emotion-info p {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+
+    .emotion-caller {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: #94a3b8;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 8px 12px;
+    }
+
+    /* ─── Glass card ─── */
+    .glass-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .glass-card-title span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #475569;
+    }
+
+    /* ─── Live feed ─── */
+    #live-feed {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 340px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    #live-feed::-webkit-scrollbar { width: 4px; }
+    #live-feed::-webkit-scrollbar-track { background: transparent; }
+    #live-feed::-webkit-scrollbar-thumb { background: #2d2d55; border-radius: 4px; }
+
+    .feed-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 12px 14px;
+      animation: slide-in 0.35s cubic-bezier(0.34,1.56,0.64,1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .feed-item::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--emotion-color, var(--neutral));
+      border-radius: 0 2px 2px 0;
+    }
+
+    .feed-emoji {
+      font-size: 20px;
+      flex-shrink: 0;
+      line-height: 1.3;
+    }
+
+    .feed-content {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .feed-emotion {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: capitalize;
+      color: var(--emotion-color, var(--neutral));
+    }
+
+    .feed-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #475569;
+    }
+
+    .feed-text {
+      font-size: 12px;
+      color: #94a3b8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .feed-caller {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #475569;
+      margin-top: 3px;
+    }
+
+    /* ─── Emotion bars ─── */
+    .emotion-bars {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .emo-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .emo-bar-label {
+      width: 68px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #94a3b8;
+      text-transform: capitalize;
+      flex-shrink: 0;
+    }
+
+    .emo-bar-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .emo-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+      background: var(--emotion-color, var(--neutral));
+      box-shadow: 0 0 6px var(--emotion-color, var(--neutral));
+    }
+
+    .emo-bar-count {
+      font-size: 11px;
+      color: #64748b;
+      width: 28px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ─── Wave viz ─── */
+    #wave-canvas {
+      width: 100%;
+      height: 70px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+
+    /* ─── Callers table ─── */
+    .callers-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .callers-table th {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #475569;
+      text-align: left;
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .callers-table td {
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #cbd5e1;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .callers-table tr:last-child td { border-bottom: none; }
+
+    .callers-table tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .emo-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      text-transform: capitalize;
+      background: rgba(255,255,255,0.06);
+    }
+
+    .caller-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    /* ─── Pie chart container ─── */
+    .pie-wrap {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      margin: 0 auto;
+    }
+
+    .pie-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      color: #64748b;
+      pointer-events: none;
+    }
+
+    .pie-center strong {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      display: block;
+    }
+
+    /* ─── Sparkline ─── */
+    .sparkline-wrap {
+      position: relative;
+    }
+
+    /* ─── Emergency banner ─── */
+    #emergency-banner {
+      display: none;
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #7f1d1d, #991b1b);
+      border: 1px solid #ef4444;
+      border-radius: 16px;
+      padding: 16px 28px;
+      z-index: 999;
+      box-shadow: 0 0 40px rgba(239,68,68,0.4);
+      animation: emergency-pulse 0.5s ease;
+      text-align: center;
+    }
+
+    @keyframes emergency-pulse {
+      0% { transform: translateX(-50%) scale(0.9); opacity: 0; }
+      100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    }
+
+    #emergency-banner h3 {
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    #emergency-banner p {
+      font-size: 13px;
+      color: #fca5a5;
+    }
+
+    /* ─── Empty state ─── */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 40px 20px;
+      color: #475569;
+      text-align: center;
+    }
+
+    .empty-state .es-icon {
+      font-size: 36px;
+      opacity: 0.6;
+    }
+
+    .empty-state p {
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    /* ─── Connection status toast ─── */
+    #conn-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 18px;
+      font-size: 12px;
+      color: #94a3b8;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      transition: opacity 0.3s, transform 0.3s;
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    #conn-toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ─── Ripple effect on new events ─── */
+    @keyframes ripple {
+      0% { box-shadow: 0 0 0 0 var(--glow); }
+      100% { box-shadow: 0 0 0 16px transparent; }
+    }
+
+    .ripple { animation: ripple 0.6s ease; }
+
+    /* ─── Legend ─── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 1200px) {
+      .grid-4 { grid-template-columns: repeat(2, 1fr); }
+      .grid-big { grid-template-columns: 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 768px) {
+      .grid-4 { grid-template-columns: 1fr 1fr; }
+      header { padding: 12px 16px; gap:12px; }
+      main { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Emergency banner (shown on SOS) -->
+  <div id="emergency-banner">
+    <h3>🚨 EMERGENCY DETECTED</h3>
+    <p id="emergency-text">Caller needs immediate help</p>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🎙️</div>
+      <div>
+        <div class="logo-text">ZenVoice</div>
+        <div class="logo-sub">Live Emotion Monitor</div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div style="display:flex;gap:28px;">
+        <div class="hstat">
+          <div class="hstat-val" id="h-total">0</div>
+          <div class="hstat-lbl">Total Events</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-val" id="h-calls">0</div>
+          <div class="hstat-lbl">Active Calls</div>
+        </div>
+        <div class="hstat">
+          <div class="hstat-val" id="h-sos">0</div>
+          <div class="hstat-lbl">SOS Alerts</div>
+        </div>
+      </div>
+      <div id="live-badge" class="offline">
+        <div class="live-dot"></div>
+        <span id="live-label">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- Stat cards row -->
+    <div class="section-title">Real-time Overview</div>
+    <div class="grid-4">
+      <div class="stat-card" style="--card-accent: var(--happy)">
+        <div class="stat-icon">😊</div>
+        <div class="stat-val" id="cnt-happy">0</div>
+        <div class="stat-lbl">Happy Detections</div>
+      </div>
+      <div class="stat-card" style="--card-accent: var(--sad)">
+        <div class="stat-icon">😢</div>
+        <div class="stat-val" id="cnt-sad">0</div>
+        <div class="stat-lbl">Sad Detections</div>
+      </div>
+      <div class="stat-card" style="--card-accent: var(--angry)">
+        <div class="stat-icon">😠</div>
+        <div class="stat-val" id="cnt-angry">0</div>
+        <div class="stat-lbl">Angry Detections</div>
+      </div>
+      <div class="stat-card" style="--card-accent: var(--scared)">
+        <div class="stat-icon">😨</div>
+        <div class="stat-val" id="cnt-scared">0</div>
+        <div class="stat-lbl">Scared Detections</div>
+      </div>
+    </div>
+
+    <!-- Middle row -->
+    <div class="section-title">Live Analysis</div>
+    <div class="grid-big">
+      <!-- Live feed -->
+      <div class="glass-card">
+        <div class="glass-card-title">
+          Live Emotion Feed
+          <span id="feed-count">0 events</span>
+        </div>
+        <div id="live-feed">
+          <div class="empty-state">
+            <div class="es-icon">📡</div>
+            <p>Waiting for live call to start…<br/>Emotion events will appear here in real time.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <!-- Current emotion -->
+        <div class="emotion-now-card">
+          <div class="emotion-now-title">Current Detected Emotion</div>
+          <div class="emotion-display">
+            <div class="emotion-orb" id="emotion-orb" style="background:rgba(148,163,184,0.1);color:var(--neutral)">😶</div>
+            <div class="emotion-info">
+              <h2 id="emotion-name">Waiting…</h2>
+              <p id="emotion-desc">No call active yet</p>
+            </div>
+          </div>
+          <div class="emotion-caller" id="emotion-caller">—</div>
+        </div>
+
+        <!-- Distribution donut -->
+        <div class="glass-card" style="flex:1">
+          <div class="glass-card-title">Emotion Distribution</div>
+          <div class="pie-wrap">
+            <canvas id="pie-chart"></canvas>
+            <div class="pie-center">
+              <strong id="pie-total">0</strong>
+              <span>events</span>
+            </div>
+          </div>
+          <div class="legend" id="pie-legend"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom row -->
+    <div class="section-title">Analytics</div>
+    <div class="grid-2">
+      <!-- Emotion breakdown bars -->
+      <div class="glass-card">
+        <div class="glass-card-title">Emotion Breakdown</div>
+        <div class="emotion-bars" id="emotion-bars">
+          <!-- generated by JS -->
+        </div>
+      </div>
+
+      <!-- Timeline sparkline -->
+      <div class="glass-card">
+        <div class="glass-card-title">Emotion Timeline
+          <span id="timeline-count"></span>
+        </div>
+        <canvas id="timeline-chart" height="200"></canvas>
+        <div class="legend" style="margin-top:12px">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--happy)"></div> Happy</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--sad)"></div> Sad</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--angry)"></div> Angry</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--scared)"></div> Scared</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--neutral)"></div> Neutral</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active callers -->
+    <div class="section-title">Active / Recent Callers</div>
+    <div class="glass-card">
+      <div class="glass-card-title">Caller Log</div>
+      <table class="callers-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Caller</th>
+            <th>Name</th>
+            <th>Detected Emotion</th>
+            <th>Last Message</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="callers-body">
+          <tr><td colspan="6" style="text-align:center;color:#475569;padding:24px">No callers yet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- Connection toast -->
+  <div id="conn-toast">🔌 <span id="conn-msg">Reconnecting…</span></div>
+
+  <script>
+  // ═══════════════════════════════════════════════════
+  //  ZenVoice Real-Time Emotion Dashboard
+  // ═══════════════════════════════════════════════════
+
+  const EMOTION_META = {
+    happy:    { emoji: '😊', color: '#22d3a0', label: 'Happy',    desc: 'Positive, upbeat energy detected' },
+    sad:      { emoji: '😢', color: '#60a5fa', label: 'Sad',      desc: 'Signs of distress or sorrow' },
+    angry:    { emoji: '😠', color: '#f87171', label: 'Angry',    desc: 'Tension or frustration in voice' },
+    scared:   { emoji: '😨', color: '#fbbf24', label: 'Scared',   desc: 'Fear or anxiety detected' },
+    neutral:  { emoji: '😐', color: '#94a3b8', label: 'Neutral',  desc: 'Calm, baseline emotional state' },
+    calm:     { emoji: '😌', color: '#34d399', label: 'Calm',     desc: 'Very relaxed and at ease' },
+    fearful:  { emoji: '😱', color: '#fb923c', label: 'Fearful',  desc: 'Strong fear response detected' },
+    disgust:  { emoji: '🤢', color: '#c084fc', label: 'Disgust',  desc: 'Displeasure or disgust' },
+    surprised:{ emoji: '😲', color: '#f472b6', label: 'Surprised','desc': 'Unexpected surprise' },
+  };
+
+  const DEFAULT_EMO = { emoji: '😶', color: '#475569', label: 'Waiting…', desc: 'No call active yet' };
+
+  // State
+  let stats = { total:0, calls:0, sos:0, happy:0, sad:0, angry:0, scared:0, neutral:0, calm:0, fearful:0, disgust:0, surprised:0 };
+  let feedItems = [];
+  let callers = {};   // phone -> latest data
+  let timelineData = [];  // [{t, emotion}]
+  let callerRowIndex = {};  // phone -> rowNum
+
+  // ── DOM refs ──
+  const $  = id => document.getElementById(id);
+  const feedEl = $('live-feed');
+  const liveBadge = $('live-badge');
+  const liveLabel = $('live-label');
+  const emergencyBanner = $('emergency-banner');
+  const connToast = $('conn-toast');
+  const connMsg = $('conn-msg');
+
+  // ── Charts ──
+
+  // Pie / Donut
+  const pieCtx = $('pie-chart').getContext('2d');
+  const pieChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(EMOTION_META),
+      datasets: [{
+        data: Object.keys(EMOTION_META).map(() => 0),
+        backgroundColor: Object.values(EMOTION_META).map(m => m.color + 'cc'),
+        borderColor: Object.values(EMOTION_META).map(m => m.color),
+        borderWidth: 1.5,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      cutout: '68%',
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: ctx => ` ${ctx.label}: ${ctx.raw} (${ctx.parsed > 0 ? Math.round(ctx.parsed / stats.total * 100) : 0}%)`
+        }
+      }},
+      animation: { duration: 400 }
+    }
+  });
+
+  // Timeline
+  const tlCtx = $('timeline-chart').getContext('2d');
+  const EMOTIONS_TRACK = ['happy','sad','angry','scared','neutral'];
+  const timelineChart = new Chart(tlCtx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: EMOTIONS_TRACK.map(e => ({
+        label: e,
+        data: [],
+        borderColor: EMOTION_META[e].color,
+        backgroundColor: EMOTION_META[e].color + '22',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0.4,
+        fill: false,
+      }))
+    },
+    options: {
+      animation: { duration: 300 },
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          ticks: { color: '#475569', maxTicksLimit: 8, font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          ticks: { color: '#475569', stepSize: 1 },
+          grid: { color: 'rgba(255,255,255,0.04)' },
+          min: 0,
+        }
+      }
+    }
+  });
+
+  // Build bars
+  function buildBars() {
+    const el = $('emotion-bars');
+    el.innerHTML = '';
+    Object.entries(EMOTION_META).forEach(([key, meta]) => {
+      const cnt = stats[key] || 0;
+      const pct = stats.total > 0 ? (cnt / stats.total * 100) : 0;
+      el.innerHTML += `
+        <div class="emo-bar-row">
+          <div class="emo-bar-label">${meta.emoji} ${meta.label}</div>
+          <div class="emo-bar-track">
+            <div class="emo-bar-fill" id="bar-${key}" style="width:${pct}%;--emotion-color:${meta.color}"></div>
+          </div>
+          <div class="emo-bar-count" id="barcnt-${key}">${cnt}</div>
+        </div>`;
+    });
+  }
+
+  function updateBars() {
+    Object.keys(EMOTION_META).forEach(key => {
+      const cnt = stats[key] || 0;
+      const pct = stats.total > 0 ? (cnt / stats.total * 100) : 0;
+      const fill = document.getElementById('bar-' + key);
+      const cnt_el = document.getElementById('barcnt-' + key);
+      if (fill) fill.style.width = pct + '%';
+      if (cnt_el) cnt_el.textContent = cnt;
+    });
+  }
+
+  // Update pie
+  function updatePie() {
+    const keys = Object.keys(EMOTION_META);
+    pieChart.data.datasets[0].data = keys.map(k => stats[k] || 0);
+    pieChart.update();
+    $('pie-total').textContent = stats.total;
+
+    // Legend
+    const legend = $('pie-legend');
+    legend.innerHTML = keys.map(k => {
+      const m = EMOTION_META[k];
+      const pct = stats.total > 0 ? Math.round((stats[k]||0)/stats.total*100) : 0;
+      return `<div class="legend-item"><div class="legend-dot" style="background:${m.color}"></div>${m.label} ${pct}%</div>`;
+    }).join('');
+  }
+
+  // Update timeline (rolling window of 30 data points, grouped by minute)
+  let timelineBuckets = {};   // 'HH:MM' -> {emotion: count}
+  let timelineLabels = [];
+
+  function updateTimeline(emotion, ts) {
+    const d = new Date(ts * 1000);
+    const label = d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+    if (timelineLabels.length === 0 || timelineLabels[timelineLabels.length-1] !== label) {
+      if (timelineLabels.length >= 30) {
+        timelineLabels.shift();
+        EMOTIONS_TRACK.forEach((_, i) => timelineChart.data.datasets[i].data.shift());
+      }
+      timelineLabels.push(label);
+      EMOTIONS_TRACK.forEach((_, i) => timelineChart.data.datasets[i].data.push(0));
+    }
+
+    const lastIdx = timelineLabels.length - 1;
+    const eIdx = EMOTIONS_TRACK.indexOf(emotion);
+    if (eIdx >= 0) {
+      timelineChart.data.datasets[eIdx].data[lastIdx] =
+        (timelineChart.data.datasets[eIdx].data[lastIdx] || 0) + 1;
+    }
+
+    timelineChart.data.labels = timelineLabels;
+    timelineChart.update();
+    $('timeline-count').textContent = `${timelineLabels.length} time points`;
+  }
+
+  // ── Emotion orb update ──
+  function updateEmotionOrb(emotion, phone, text) {
+    const meta = EMOTION_META[emotion] || DEFAULT_EMO;
+    const orb = $('emotion-orb');
+    const name = $('emotion-name');
+    const desc = $('emotion-desc');
+    const caller = $('emotion-caller');
+
+    orb.textContent = meta.emoji;
+    orb.style.background = meta.color + '22';
+    orb.style.color = meta.color;
+    orb.style.boxShadow = `0 0 24px ${meta.color}66`;
+    orb.classList.add('ripple');
+    setTimeout(() => orb.classList.remove('ripple'), 700);
+
+    name.textContent = meta.label;
+    name.style.color = meta.color;
+    desc.textContent = meta.desc;
+    caller.textContent = phone ? `📞 ${phone}  •  "${(text||'').slice(0,60)}${text && text.length>60?'…':''}"` : '—';
+  }
+
+  // ── Feed item ──
+  let feedCount = 0;
+  function addFeedItem(event) {
+    const meta = EMOTION_META[event.emotion] || DEFAULT_EMO;
+    const time = new Date(event.ts * 1000).toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+    // Remove empty state if present
+    const empty = feedEl.querySelector('.empty-state');
+    if (empty) empty.remove();
+
+    const div = document.createElement('div');
+    div.className = 'feed-item';
+    div.style.setProperty('--emotion-color', meta.color);
+    div.innerHTML = `
+      <div class="feed-emoji">${meta.emoji}</div>
+      <div class="feed-content">
+        <div class="feed-header">
+          <span class="feed-emotion" style="color:${meta.color}">${meta.label}</span>
+          <span class="feed-time">${time}</span>
+        </div>
+        <div class="feed-text">${escHtml(event.text || '')}</div>
+        <div class="feed-caller">📞 ${event.phone || 'Unknown'}</div>
+      </div>`;
+
+    feedEl.insertBefore(div, feedEl.firstChild);
+    feedCount++;
+    $('feed-count').textContent = `${feedCount} events`;
+
+    // Cap at 60 items
+    while (feedEl.children.length > 60) {
+      feedEl.removeChild(feedEl.lastChild);
+    }
+  }
+
+  // ── Callers table ──
+  let callerSeq = 0;
+  function updateCallerRow(event) {
+    const tbody = $('callers-body');
+    const ph = event.phone || 'unknown';
+    const meta = EMOTION_META[event.emotion] || DEFAULT_EMO;
+    const time = new Date(event.ts * 1000).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    let rowId = `caller-row-${ph.replace(/\W/g,'_')}`;
+    let row = document.getElementById(rowId);
+
+    if (!row) {
+      callerSeq++;
+      if (tbody.querySelector('td[colspan]')) tbody.innerHTML = '';
+      row = document.createElement('tr');
+      row.id = rowId;
+      tbody.insertBefore(row, tbody.firstChild);
+    }
+
+    row.innerHTML = `
+      <td class="caller-mono">${callerSeq}</td>
+      <td class="caller-mono">${ph}</td>
+      <td>${escHtml(event.name || '—')}</td>
+      <td><span class="emo-pill" style="color:${meta.color}">${meta.emoji} ${meta.label}</span></td>
+      <td style="color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml((event.text||'').slice(0,80))}</td>
+      <td class="caller-mono">${time}</td>`;
+  }
+
+  // ── Emergency handler ──
+  function showEmergency(event) {
+    const banner = emergencyBanner;
+    banner.style.display = 'block';
+    $('emergency-text').textContent = `${event.phone || 'Caller'}: "${(event.text||'').slice(0,100)}"`;
+    // Flash header red
+    document.querySelector('header').style.borderBottomColor = '#ef4444';
+    setTimeout(() => {
+      banner.style.display = 'none';
+      document.querySelector('header').style.borderBottomColor = '';
+    }, 8000);
+    stats.sos++;
+    $('h-sos').textContent = stats.sos;
+  }
+
+  // ── Process incoming SSE event ──
+  function processEvent(event) {
+    const emotion = event.emotion || 'neutral';
+
+    // Increment stats
+    stats.total++;
+    if (stats[emotion] !== undefined) stats[emotion]++;
+    else stats.neutral++;
+
+    // Header
+    $('h-total').textContent = stats.total;
+
+    // Stat cards
+    ['happy','sad','angry','scared'].forEach(e => {
+      $('cnt-'+e).textContent = stats[e];
+    });
+
+    // Orb
+    updateEmotionOrb(emotion, event.phone, event.text);
+
+    // Feed
+    addFeedItem(event);
+
+    // Bars
+    updateBars();
+
+    // Pie
+    updatePie();
+
+    // Timeline
+    updateTimeline(emotion, event.ts || Date.now()/1000);
+
+    // Caller row
+    updateCallerRow(event);
+
+    // Emergency?
+    if (event.is_emergency) {
+      showEmergency(event);
+    }
+  }
+
+  // ── SSE Connection ──
+  let sse = null;
+  let reconnectTimer = null;
+  let retryDelay = 2000;
+
+  function connectSSE() {
+    if (sse) { sse.close(); }
+
+    sse = new EventSource('/api/dashboard/stream');
+
+    sse.onopen = () => {
+      liveBadge.classList.remove('offline');
+      liveLabel.textContent = 'LIVE';
+      retryDelay = 2000;
+      hideToast();
+    };
+
+    sse.addEventListener('emotion', e => {
+      try {
+        const data = JSON.parse(e.data);
+        processEvent(data);
+      } catch(err) { console.warn('Parse error', err); }
+    });
+
+    sse.addEventListener('heartbeat', e => {
+      try {
+        const data = JSON.parse(e.data);
+        const activeCalls = data.active_calls || 0;
+        $('h-calls').textContent = activeCalls;
+      } catch {}
+    });
+
+    sse.onerror = () => {
+      liveBadge.classList.add('offline');
+      liveLabel.textContent = 'Reconnecting…';
+      showToast('Connection lost — retrying…');
+      sse.close();
+      clearTimeout(reconnectTimer);
+      reconnectTimer = setTimeout(() => {
+        retryDelay = Math.min(retryDelay * 1.5, 15000);
+        connectSSE();
+      }, retryDelay);
+    };
+  }
+
+  function showToast(msg) {
+    connMsg.textContent = msg;
+    connToast.classList.add('show');
+  }
+
+  function hideToast() {
+    connToast.classList.remove('show');
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Init ──
+  buildBars();
+  updatePie();
+  connectSSE();
+
+  // Dashboard is live-only — no demo data. Waiting for real calls.
+  </script>
+</body>
+</html>

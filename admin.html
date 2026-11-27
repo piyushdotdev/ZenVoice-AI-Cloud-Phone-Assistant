@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenVoice Admin Panel</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+    <h1>ZenVoice Admin Panel</h1>
+    <h2>User Call Logs and Emotions</h2>
+    <table id="userTable">
+        <thead>
+            <tr>
+                <th>Phone Number</th>
+                <th>Name</th>
+                <th>Last Emotion</th>
+                <th>Call History</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Data will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        async function loadUsers(){
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            try{
+                const r = await fetch('/admin/data');
+                const data = await r.json();
+                (data.users||[]).forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${user.phone}</td>
+                        <td>${user.name}</td>
+                        <td>${user.emotion}</td>
+                        <td>${user.call_count||0} calls</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }catch(e){
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="4">Failed to load admin data</td>`;
+                tbody.appendChild(row);
+            }
+        }
+        loadUsers();
+        setInterval(loadUsers, 5000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenVoice - SOS Emergency Alert Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .location-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        
+        .location-btn:hover {
+            background: #45a049;
+        }
+        
+        .location-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .location-status.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .sos-btn {
+            width: 100%;
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 20px;
+        }
+        
+        .sos-btn:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+        }
+        
+        .sos-btn:active {
+            transform: translateY(0);
+        }
+        
+        .sos-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .emoji {
+            font-size: 24px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 ZenVoice Emergency Alert</h1>
+        <p class="subtitle">Send immediate SOS alert to your emergency contacts</p>
+        
+        <form id="sosForm">
+            <div class="form-group">
+                <label for="phone">Your Phone Number *</label>
+                <input type="tel" id="phone" name="phone" placeholder="+1234567890" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="message">Emergency Message</label>
+                <textarea id="message" name="message" placeholder="I need help! (optional - default message will be sent)"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Share Current Location</label>
+                <button type="button" class="location-btn" onclick="getLocation()">
+                    📍 Get My Location
+                </button>
+                <div id="locationStatus" class="location-status" style="display: none;"></div>
+                <input type="hidden" id="latitude" name="latitude">
+                <input type="hidden" id="longitude" name="longitude">
+            </div>
+            
+            <button type="submit" class="sos-btn">🚨 SEND EMERGENCY ALERT</button>
+        </form>
+        
+        <div id="result" class="result"></div>
+    </div>
+    
+    <script>
+        let locationShared = false;
+        
+        function getLocation() {
+            const statusDiv = document.getElementById('locationStatus');
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'location-status';
+            statusDiv.innerHTML = '📍 Getting your location...';
+            
+            if (!navigator.geolocation) {
+                statusDiv.innerHTML = '❌ Geolocation is not supported by your browser';
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    document.getElementById('latitude').value = lat;
+                    document.getElementById('longitude').value = lon;
+                    locationShared = true;
+                    statusDiv.className = 'location-status success';
+                    statusDiv.innerHTML = `✅ Location captured: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+                },
+                (error) => {
+                    statusDiv.innerHTML = '❌ Could not get location: ' + error.message;
+                }
+            );
+        }
+        
+        document.getElementById('sosForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = document.querySelector('.sos-btn');
+            const resultDiv = document.getElementById('result');
+            
+            // Disable button during submission
+            submitBtn.disabled = true;
+            submitBtn.textContent = '⏳ Sending alert...';
+            
+            // Get form data
+            const phone = document.getElementById('phone').value;
+            const message = document.getElementById('message').value || 'SOS - I need help immediately!';
+            const lat = document.getElementById('latitude').value;
+            const lon = document.getElementById('longitude').value;
+            
+            const payload = {
+                phone: phone,
+                message: message
+            };
+            
+            if (lat && lon) {
+                payload.latitude = parseFloat(lat);
+                payload.longitude = parseFloat(lon);
+            }
+            
+            try {
+                const response = await fetch('/api/sos', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.style.display = 'block';
+                
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <span class="emoji">✅</span>
+                        <strong>Alert Sent Successfully!</strong><br>
+                        Contacted: ${data.sent_to} emergency contact(s)<br>
+                        User: ${data.user_name}<br>
+                        ${data.location_shared ? '📍 Location shared with contacts' : ''}
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <span class="emoji">❌</span>
+                        <strong>Failed to send alert</strong><br>
+                        Error: ${data.error}
+                    `;
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <span class="emoji">❌</span>
+                    <strong>Network Error</strong><br>
+                    Could not connect to server. Please check your connection.
+                `;
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🚨 SEND EMERGENCY ALERT';
+            }
+        });
+    </script>
+</body>
+</html>
